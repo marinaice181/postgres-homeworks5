@@ -1,27 +1,45 @@
-"""Скрипт для заполнения данными таблиц в БД Postgres."""
-
+import csv
 import psycopg2
+import os
 
-if __name__ == '__main__':
-    conn = psycopg2.connect(host='localhost', database='north', user='postgres', password='Wot561')
-    cur = conn.cursor()
-    try:
+db_conn_pw = os.getenv("PATH")
 
-        sql = "COPY %s FROM STDIN WITH CSV HEADER DELIMITER AS ','"
-        reed_f = open('north_data/employees_data.csv', 'r', encoding='utf8')
-        cur.execute("truncate " + 'employees' + ";")
-        cur.copy_expert(sql=sql % 'employees', file=reed_f)
+# connect to db
+connection = psycopg2.connect(
+host="localhost",
+database='north',
+user='postgres',
+password='Wot561'
+)
 
-        sql = "COPY %s FROM STDIN WITH CSV HEADER DELIMITER AS ','"
-        reed_f = open('north_data/customers_data.csv', 'r', encoding='utf8')
-        cur.execute("truncate " + 'customers' + ";")
-        cur.copy_expert(sql=sql % 'customers', file=reed_f)
+employees = "north_data/employees_data.csv"
+customers  = "north_data/customers_data.csv"
+orders  = "north_data/orders_data.csv"
 
-        with open('north_data/orders_data.csv', 'r', encoding='utf-8') as f:
-            cur.execute("truncate " + 'orders' + ";")
-            cur.copy_expert("COPY orders FROM STDIN WITH CSV HEADER DELIMITER AS ','", f)
+try:
+    with connection:
+        with connection.cursor() as cur:
+            # execution query
+            with open(employees) as f:
+                employees = csv.DictReader(f)
+                for i in employees:
+                    cur.execute("INSERT INTO employees VALUES (%s, %s, %s, %s, %s, %s)",
+                                (i["employee_id"], i["first_name"], i["last_name"],
+                                 i["title"], i["birth_date"], i["notes"]))
 
-    finally:
-        conn.commit()
-        cur.close()
-        conn.close()
+            with open(customers) as f:
+                customers = csv.DictReader(f)
+                for i in customers:
+                    cur.execute("INSERT INTO customers VALUES (%s, %s, %s)",
+                                (i["customer_id"], i["company_name"],
+                                 i["contact_name"]))
+
+            with open(orders) as f:
+                orders = csv.DictReader(f)
+                for i in orders:
+                    cur.execute("INSERT INTO orders VALUES (%s, %s, %s, %s, %s)",
+                                (i["order_id"], i["customer_id"], i["employee_id"],
+                                 i["order_date"], i["ship_city"]))
+
+finally:
+    connection.close()
